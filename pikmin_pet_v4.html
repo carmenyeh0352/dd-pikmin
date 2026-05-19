@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>🌿 皮克敏花園</title>
+<style>
+:root { --gh: 100px; }
+* { box-sizing:border-box; margin:0; padding:0; user-select:none; }
+html,body { width:100%; height:100%; overflow:hidden;
+  background:linear-gradient(180deg,#87ceeb 0%,#b8e4f9 40%,#d4eecc 80%,#a8d8a8 100%);
+  font-family:'Segoe UI','PingFang TC','Microsoft JhengHei',sans-serif; }
+
+.sun { position:fixed; top:24px; right:60px; width:70px; height:70px;
+  background:radial-gradient(circle,#fffde7,#ffe57f); border-radius:50%;
+  box-shadow:0 0 50px 15px rgba(255,230,100,.4); z-index:0; pointer-events:none; }
+.cloud { position:fixed; font-size:56px; opacity:.7; z-index:0; pointer-events:none; animation:drift linear infinite; }
+@keyframes drift { from{transform:translateX(-200px)} to{transform:translateX(calc(100vw + 200px))} }
+.ground { position:fixed; bottom:0; left:0; right:0; height:var(--gh);
+  background:linear-gradient(180deg,#5cb85c,#3d8b3d); z-index:1; }
+.ground::before { content:''; position:absolute; top:-10px; left:0; right:0; height:20px;
+  background:#5cb85c; border-radius:50% 50% 0 0/10px 10px 0 0; }
+.grass { position:absolute; top:-18px; pointer-events:none; }
+
+/* Pikmin */
+.pikmin { position:fixed; width:100px; height:100px; cursor:grab; z-index:10; }
+.pikmin.dragging { cursor:grabbing; z-index:200; }
+.pikmin svg { width:100%; height:100%; filter:drop-shadow(1px 4px 4px rgba(0,0,0,.22)); }
+.pikmin.walking svg { animation:wb .4s ease-in-out infinite; }
+@keyframes wb { 0%,100%{transform:translateY(0) rotate(-2deg)} 50%{transform:translateY(-6px) rotate(2deg)} }
+.pikmin.flying svg { animation:fly 1.1s ease-in-out infinite; }
+@keyframes fly { 0%,100%{transform:translateY(0) rotate(-3deg)} 50%{transform:translateY(-10px) rotate(3deg)} }
+.pikmin.lifted svg { animation:lft .45s ease-in-out infinite; }
+@keyframes lft { 0%,100%{transform:rotate(-10deg)} 50%{transform:rotate(10deg)} }
+
+/* Bubble */
+.bwrap { position:fixed; pointer-events:none; z-index:500; transform:translateX(-50%); }
+.bubble { background:#fff; border-radius:14px; padding:6px 14px; font-size:12px; font-weight:600;
+  white-space:nowrap; max-width:280px; box-shadow:0 2px 8px rgba(0,0,0,.15); animation:bpop 2.2s ease forwards; }
+.bubble::after { content:''; position:absolute; bottom:-7px; left:50%; transform:translateX(-50%);
+  border:7px solid transparent; border-top-color:#fff; }
+@keyframes bpop { 0%{opacity:0;transform:translateY(8px)} 15%,80%{opacity:1;transform:translateY(0)} 100%{opacity:0;transform:translateY(-6px)} }
+
+/* Food */
+.food { position:fixed; z-index:15; pointer-events:none; width:36px; height:36px;
+  filter:drop-shadow(1px 2px 3px rgba(0,0,0,.3)); }
+.food.eaten { transition:transform .2s,opacity .2s; transform:scale(2) !important; opacity:0 !important; }
+
+/* Harvest */
+.hpetal { position:fixed; z-index:400; pointer-events:none; font-size:18px; animation:hfly linear forwards; }
+@keyframes hfly { 0%{opacity:1;transform:translateY(0) rotate(0) scale(1)} 100%{opacity:0;transform:translateY(-120px) rotate(720deg) scale(.4)} }
+.hbtn { position:fixed; z-index:501; background:linear-gradient(135deg,#fff9c4,#ffe57f);
+  border:2.5px solid #ffb300; border-radius:20px; padding:6px 14px;
+  font-size:12px; font-weight:800; color:#795548; cursor:pointer;
+  box-shadow:0 3px 12px rgba(0,0,0,.15); white-space:nowrap;
+  animation:popIn .2s cubic-bezier(.34,1.56,.64,1); }
+@keyframes popIn { from{transform:scale(0);opacity:0} to{transform:scale(1);opacity:1} }
+
+/* Petal counter */
+
+
+/* Status */
+.status { position:fixed; bottom:110px; left:50%; transform:translateX(-50%);
+  background:rgba(255,255,255,.8); backdrop-filter:blur(8px);
+  padding:7px 20px; border-radius:20px; font-size:13px; color:#444;
+  z-index:50; pointer-events:none; opacity:0; transition:opacity .3s; }
+.status.show { opacity:1; }
+
+/* Floating btns */
+.fbtn { position:fixed; right:20px; width:56px; height:56px; border-radius:50%;
+  border:3px solid rgba(255,255,255,.7); cursor:pointer; z-index:200;
+  display:flex; align-items:center; justify-content:center; font-size:26px;
+  transition:transform .15s; flex-direction:column; }
+.fbtn:hover { transform:scale(1.1); }
+.fbtn .lbl { position:absolute; bottom:-20px; left:50%; transform:translateX(-50%);
+  font-size:10px; font-weight:700; white-space:nowrap;
+  background:rgba(255,255,255,.88); padding:2px 6px; border-radius:8px; }
+#spawnBtn { bottom:260px; background:linear-gradient(135deg,#ffe57f,#ffb300);
+  box-shadow:0 4px 18px rgba(0,0,0,.2); color:#795548; }
+#essBtn  { bottom:180px; background:linear-gradient(135deg,#a8e063,#56ab2f);
+  box-shadow:0 4px 18px rgba(0,0,0,.2); }
+
+/* Panels */
+.panel { position:fixed; right:16px; background:rgba(255,255,255,.96);
+  backdrop-filter:blur(20px); border-radius:22px;
+  box-shadow:0 12px 48px rgba(0,0,0,.18); padding:14px; display:none; z-index:300; }
+.panel.open { display:block; animation:pslide .25s cubic-bezier(.34,1.56,.64,1); }
+@keyframes pslide { from{opacity:0;transform:translateY(16px) scale(.95)} to{opacity:1;transform:translateY(0) scale(1)} }
+.panel h4 { font-size:13px; font-weight:800; color:#1b5e20; margin-bottom:10px; text-align:center; }
+#spawnPanel { bottom:330px; width:290px; }
+#essPanel   { bottom:250px; width:310px; }
+
+/* Spawn grid */
+.sgrid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:6px; }
+.sbtn { padding:7px 4px; border:none; border-radius:12px; background:#e8f5e9; color:#2e7d32;
+  font-size:11px; font-weight:700; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:2px;
+  transition:transform .1s,background .15s; }
+.sbtn:hover { background:#c8e6c9; transform:scale(1.06); }
+.sbtn .em { font-size:20px; }
+.sbtn.all { grid-column:span 2; background:#fff9c4; color:#795548; }
+.sbtn.all:hover { background:#fff176; }
+.sbtn.clr { grid-column:span 2; background:#ffebee; color:#c62828; }
+.sbtn.clr:hover { background:#ffcdd2; }
+
+/* Essence grid */
+.esec { font-size:10px; font-weight:700; letter-spacing:.06em; padding:4px 6px; margin-bottom:6px; border-radius:6px; }
+.esec.ms { color:#0078d4; background:#e8f4ff; }
+.esec.ot { color:#555; background:#f5f5f5; }
+.egrid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:8px; }
+.eitem { display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer;
+  padding:6px 4px; border-radius:12px; border:2px solid transparent; transition:background .12s,transform .1s; }
+.eitem:hover { background:#f0f7f0; transform:scale(1.06); border-color:#c8e6c9; }
+.eitem svg { width:36px; height:36px; }
+.eitem span { font-size:9px; font-weight:700; color:#444; text-align:center; }
+.ehint { font-size:10px; color:#888; text-align:center; padding:6px 0 2px; border-top:1px solid #eee; }
+
+/* Essence mode hint */
+#essHint { position:fixed; bottom:175px; right:16px;
+  background:rgba(76,175,80,.9); color:white; padding:8px 14px;
+  border-radius:12px; font-size:12px; font-weight:700; z-index:201; pointer-events:none; display:none; }
+
+/* ── 花瓣庫存視窗 ── */
+#petalBtn { bottom:350px; background:linear-gradient(135deg,#f8bbd0,#e91e8c);
+  box-shadow:0 4px 18px rgba(233,30,140,.3); }
+#petalPanel { bottom:420px; width:300px; }
+
+.petal-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:10px; }
+.petal-card {
+  background:#f9f9f9; border-radius:14px; padding:10px 12px;
+  display:flex; align-items:center; gap:8px;
+  border:2px solid transparent; transition:border .15s,background .15s;
+}
+.petal-card.has-petals { cursor:pointer; }
+.petal-card.has-petals:hover { background:#f0fff0; border-color:#81c784; }
+.petal-card.selected { background:#e8f5e9; border-color:#4caf50; }
+.petal-card .pem { font-size:22px; }
+.petal-card .pinfo { flex:1; }
+.petal-card .pname { font-size:11px; font-weight:700; color:#555; }
+.petal-card .pcnt { font-size:18px; font-weight:900; color:#2e7d32; }
+.petal-card .pempty { font-size:13px; color:#bbb; }
+
+.plant-btn {
+  width:100%; padding:10px; border:none; border-radius:14px;
+  background:linear-gradient(135deg,#a8e063,#56ab2f);
+  color:white; font-size:13px; font-weight:800; cursor:pointer;
+  transition:opacity .15s,transform .1s;
+  display:none;
+}
+.plant-btn:hover { opacity:.9; transform:scale(1.02); }
+.plant-btn.show { display:block; }
+.plant-status { font-size:11px; color:#888; text-align:center; margin-top:6px; }
+
+/* 種下的小花 */
+.planted-flower {
+  position:fixed; z-index:2; pointer-events:none;
+  animation:flowerGrow .5s cubic-bezier(.34,1.56,.64,1) forwards;
+}
+@keyframes flowerGrow {
+  from { transform:scale(0) translateY(8px); opacity:0; }
+  to   { transform:scale(1) translateY(0);   opacity:1; }
+}
+/* 屁股閃亮特效 */
+.butt-glow {
+  position:absolute; bottom:-8px; left:50%;
+  transform:translateX(-50%);
+  width:40px; height:20px;
+  border-radius:50%; pointer-events:none; z-index:20;
+  animation:buttGlow .4s ease-in-out infinite alternate;
+}
+@keyframes buttGlow {
+  from { opacity:.5; transform:translateX(-50%) scale(.8); }
+  to   { opacity:1;  transform:translateX(-50%) scale(1.4); }
+}
+</style>
+</head>
+<body>
+<div class="sun"></div>
+<div class="cloud" style="top:50px;left:0;animation-duration:72s">☁️</div>
+<div class="cloud" style="top:130px;left:0;animation-duration:105s;animation-delay:-40s;font-size:38px">☁️</div>
+<div class="ground" id="ground"></div>
+
+
+<div class="status" id="status"></div>
+<div id="essHint"></div>
+
+<!-- 花瓣庫存按鈕 -->
+<div class="fbtn" id="petalBtn" onclick="togglePanel('petalPanel',event)">🌸<div class="lbl">花瓣</div></div>
+<div class="panel" id="petalPanel" onclick="event.stopPropagation()">
+  <h4>🌸 花瓣庫存</h4>
+  <div class="petal-grid" id="petalGrid"></div>
+  <button class="plant-btn" id="plantBtn" onclick="startPlanting()">🌱 種花！（1片 = 20朵）</button>
+  <div class="plant-status" id="plantStatus"></div>
+</div>
+
+<!-- 召喚按鈕 -->
+<div class="fbtn" id="spawnBtn" onclick="togglePanel('spawnPanel',event)">🌿<div class="lbl">召喚</div></div>
+<div class="panel" id="spawnPanel" onclick="event.stopPropagation()">
+  <h4>🌿 召喚皮克敏</h4>
+  <div class="sgrid">
+    <button class="sbtn" onclick="spawn('yellow')"><span class="em">🟡</span>黃色</button>
+    <button class="sbtn" onclick="spawn('red')"><span class="em">🔴</span>紅色</button>
+    <button class="sbtn" onclick="spawn('blue')"><span class="em">🔵</span>藍色</button>
+    <button class="sbtn" onclick="spawn('rock')"><span class="em">🪨</span>岩石</button>
+    <button class="sbtn" onclick="spawn('purple')"><span class="em">🟣</span>紫色</button>
+    <button class="sbtn" onclick="spawn('white')"><span class="em">⚪</span>白色</button>
+    <button class="sbtn" onclick="spawn('winged')"><span class="em">🌸</span>羽翼</button>
+    <button class="sbtn" onclick="spawn('ice')"><span class="em">❄️</span>冰系</button>
+    <button class="sbtn all" onclick="spawnAll()">✨ 全部召喚</button>
+    <button class="sbtn clr" onclick="clearAll()">🧹 清空</button>
+  </div>
+</div>
+
+<!-- 精華按鈕 -->
+<div class="fbtn" id="essBtn" onclick="togglePanel('essPanel',event)">🌿<div class="lbl">精華</div></div>
+<div class="panel" id="essPanel" onclick="event.stopPropagation()">
+  <h4>🌿 選擇精華</h4>
+  <div class="esec ms">📘 Microsoft 365 — 逐步升級</div>
+  <div class="egrid" id="msGrid"></div>
+  <div class="esec ot">🖥️ 其他工具 — 直接開花</div>
+  <div class="egrid" id="otGrid"></div>
+  <div class="ehint">💡 選精華後，點空白處灑食，皮克敏自己搶！</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// SVG 資料
+// ═══════════════════════════════════════
+const SVGS = {
+yellow:`<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <path d="M24 80Q18 82 16 90Q21 92 24 90Z" fill="#d4a830"/>
+  <path d="M24 82Q19 84 18 90Q22 91 24 90Z" fill="#e8b840"/>
+  <path d="M102 80Q108 82 110 90Q105 92 102 90Z" fill="#d4a830"/>
+  <path d="M102 82Q107 84 108 90Q104 91 102 90Z" fill="#e8b840"/>
+  <path d="M30 50L56 50L64 58L96 58Q102 58 102 64L102 96Q102 102 96 102L30 102Q24 102 24 96L24 56Q24 50 30 50Z" fill="#f5d654"/>
+  <circle cx="52" cy="78" r="5" fill="white"/><circle cx="74" cy="78" r="5" fill="white"/>
+  <circle cx="52" cy="78.5" r="2.6" fill="#1a1a1a"/><circle cx="74" cy="78.5" r="2.6" fill="#1a1a1a"/>
+  %%T%%</svg>`,
+red:`<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <path d="M30 50L56 50L64 58L96 58Q102 58 102 64L102 96Q102 102 96 102L30 102Q24 102 24 96L24 56Q24 50 30 50Z" fill="#c14545"/>
+  <circle cx="52" cy="78" r="5" fill="white"/><circle cx="74" cy="78" r="5" fill="white"/>
+  <circle cx="52" cy="78.5" r="2.6" fill="#1a1a1a"/><circle cx="74" cy="78.5" r="2.6" fill="#1a1a1a"/>
+  <path d="M60 85L68 85L63 92Z" fill="#a02828"/>
+  %%T%%</svg>`,
+blue:`<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <path d="M30 50L56 50L64 58L96 58Q102 58 102 64L102 96Q102 102 96 102L30 102Q24 102 24 96L24 56Q24 50 30 50Z" fill="#5670a8"/>
+  <circle cx="52" cy="78" r="5" fill="white"/><circle cx="74" cy="78" r="5" fill="white"/>
+  <circle cx="52" cy="78.5" r="2.6" fill="#1a1a1a"/><circle cx="74" cy="78.5" r="2.6" fill="#1a1a1a"/>
+  <ellipse cx="64" cy="90" rx="4.5" ry="3" fill="#e88aa0"/>
+  %%T%%</svg>`,
+purple:`<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <line x1="24" y1="70" x2="19" y2="69" stroke="#5d4078" stroke-width="3" stroke-linecap="round"/>
+  <line x1="24" y1="80" x2="18" y2="80" stroke="#5d4078" stroke-width="3" stroke-linecap="round"/>
+  <line x1="24" y1="90" x2="19" y2="91" stroke="#5d4078" stroke-width="3" stroke-linecap="round"/>
+  <line x1="102" y1="70" x2="107" y2="69" stroke="#5d4078" stroke-width="3" stroke-linecap="round"/>
+  <line x1="102" y1="80" x2="108" y2="80" stroke="#5d4078" stroke-width="3" stroke-linecap="round"/>
+  <line x1="102" y1="90" x2="107" y2="91" stroke="#5d4078" stroke-width="3" stroke-linecap="round"/>
+  <path d="M30 50L56 50L64 58L96 58Q102 58 102 64L102 96Q102 102 96 102L30 102Q24 102 24 96L24 56Q24 50 30 50Z" fill="#8866a8"/>
+  <circle cx="52" cy="78" r="5" fill="white"/><circle cx="74" cy="78" r="5" fill="white"/>
+  <circle cx="52" cy="78.5" r="2.6" fill="#1a1a1a"/><circle cx="74" cy="78.5" r="2.6" fill="#1a1a1a"/>
+  %%T%%</svg>`,
+white:`<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <path d="M30 50L56 50L64 58L96 58Q102 58 102 64L102 96Q102 102 96 102L30 102Q24 102 24 96L24 56Q24 50 30 50Z" fill="#f5f0e8" stroke="#d8d0c0" stroke-width="1.5"/>
+  <circle cx="52" cy="78" r="3.5" fill="#e63838"/><circle cx="74" cy="78" r="3.5" fill="#e63838"/>
+  %%T%%</svg>`,
+rock:`<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <path d="M34 56L54 48L66 54L96 56L104 76L100 98L76 104L38 102L26 84L30 64Z" fill="#8a8a8a"/>
+  <path d="M34 56L54 72L66 54" stroke="#787878" stroke-width="1.2" fill="none"/>
+  <path d="M54 72L96 56" stroke="#787878" stroke-width="1.2" fill="none"/>
+  <path d="M54 72L38 102" stroke="#787878" stroke-width="1.2" fill="none"/>
+  <path d="M54 72L76 104" stroke="#787878" stroke-width="1.2" fill="none"/>
+  <path d="M54 72L100 98" stroke="#787878" stroke-width="1.2" fill="none"/>
+  <circle cx="56" cy="82" r="5" fill="white"/><circle cx="78" cy="82" r="5" fill="white"/>
+  <circle cx="56" cy="82.5" r="2.6" fill="#1a1a1a"/><circle cx="78" cy="82.5" r="2.6" fill="#1a1a1a"/>
+  %%T%%</svg>`,
+winged:`<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="20" cy="74" rx="13" ry="8" fill="#eaf4ff" opacity=".9" transform="rotate(-25 20 74)"/>
+  <ellipse cx="108" cy="74" rx="13" ry="8" fill="#eaf4ff" opacity=".9" transform="rotate(25 108 74)"/>
+  <path d="M30 50L56 50L64 58L96 58Q102 58 102 64L102 96Q102 102 96 102L30 102Q24 102 24 96L24 56Q24 50 30 50Z" fill="#f0a8c8"/>
+  <rect x="26" y="88" width="74" height="4" fill="#c44878"/>
+  <rect x="26" y="96" width="74" height="4" fill="#c44878"/>
+  <circle cx="52" cy="76" r="6" fill="#3aa8c8"/>
+  <circle cx="76" cy="76" r="6" fill="#3aa8c8"/>
+  <circle cx="50.5" cy="74.5" r="1.5" fill="white" opacity=".7"/>
+  <circle cx="74.5" cy="74.5" r="1.5" fill="white" opacity=".7"/>
+  %%T%%</svg>`,
+ice:`<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <path d="M34 56L54 48L66 54L96 56L104 76L100 98L76 104L38 102L26 84L30 64Z" fill="#b8e0ec" opacity=".95"/>
+  <path d="M34 56L54 72L66 54" stroke="white" stroke-width="1.5" fill="none" opacity=".7"/>
+  <path d="M54 72L96 56" stroke="white" stroke-width="1.5" fill="none" opacity=".7"/>
+  <path d="M54 72L38 102" stroke="white" stroke-width="1.5" fill="none" opacity=".7"/>
+  <path d="M54 72L76 104" stroke="white" stroke-width="1.5" fill="none" opacity=".7"/>
+  <path d="M54 72L100 98" stroke="white" stroke-width="1.5" fill="none" opacity=".7"/>
+  <polygon points="34,56 54,48 54,72" fill="white" opacity=".25"/>
+  <circle cx="56" cy="82" r="5" fill="white"/><circle cx="78" cy="82" r="5" fill="white"/>
+  <circle cx="56" cy="82.5" r="2.6" fill="#2a6a8a"/><circle cx="78" cy="82.5" r="2.6" fill="#2a6a8a"/>
+  %%T%%</svg>`
+};
+
+// 各種皮克敏的預設花色
+const DEF_PETAL = { yellow:'white', red:'#ffbbbb', blue:'#ff7777', purple:'#c8a8e8',
+                    white:'white', rock:'#aaffaa', winged:'#cc88ee', ice:'#cceeff' };
+
+// App 對應花色
+const APP_COLOR = {
+  outlook:'white', teams:'#7b83eb', excel:'#21a366', word:'#2b5fad',
+  ppt:'#ff6b4a', onedrive:'#83c8fa', chrome:'#fbbc05', vscode:'#007acc',
+  slack:'#e01e5a', notion:'#aaaaaa', jira:'#2684ff', figma:'#a259ff'
+};
+const APP_STROKE = { outlook:'#d8d8d8', notion:'#888' };
+
+// App SVG icons
+const APP_ICONS = {
+  outlook: { label:'Outlook', ms365:true, emoji:'📧', svg:`<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#0078d4"/><rect x="6" y="10" width="22" height="28" rx="3" fill="#1a9aff"/><circle cx="17" cy="24" r="7" fill="white" opacity=".95"/><circle cx="17" cy="24" r="5" fill="#0078d4"/><rect x="22" y="13" width="20" height="22" rx="2" fill="white" opacity=".95"/><line x1="25" y1="19" x2="39" y2="19" stroke="#0078d4" stroke-width="1.5"/><line x1="25" y1="23" x2="39" y2="23" stroke="#0078d4" stroke-width="1.5"/><line x1="25" y1="27" x2="35" y2="27" stroke="#0078d4" stroke-width="1.5"/></svg>` },
+  teams:   { label:'Teams', ms365:true, emoji:'💬', svg:`<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#5059c9"/><circle cx="30" cy="16" r="5" fill="white" opacity=".9"/><rect x="22" y="22" width="16" height="12" rx="3" fill="white" opacity=".9"/><circle cx="18" cy="18" r="6" fill="#7b83eb"/><rect x="10" y="25" width="14" height="11" rx="3" fill="#7b83eb"/></svg>` },
+  excel:   { label:'Excel', ms365:true, emoji:'📊', svg:`<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#185c37"/><rect x="6" y="8" width="22" height="32" rx="3" fill="#21a366"/><rect x="22" y="11" width="20" height="26" rx="2" fill="white" opacity=".95"/><line x1="22" y1="18" x2="42" y2="18" stroke="#c6e7d4" stroke-width="1"/><line x1="22" y1="24" x2="42" y2="24" stroke="#c6e7d4" stroke-width="1"/><line x1="22" y1="30" x2="42" y2="30" stroke="#c6e7d4" stroke-width="1"/><line x1="32" y1="11" x2="32" y2="37" stroke="#c6e7d4" stroke-width="1"/><text x="11" y="31" font-family="Arial" font-weight="900" font-size="14" fill="white">X</text></svg>` },
+  word:    { label:'Word', ms365:true, emoji:'📝', svg:`<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#1e4d8c"/><rect x="6" y="8" width="22" height="32" rx="3" fill="#2b5fad"/><rect x="22" y="11" width="20" height="26" rx="2" fill="white" opacity=".95"/><line x1="25" y1="17" x2="39" y2="17" stroke="#2b5fad" stroke-width="1.5"/><line x1="25" y1="21" x2="39" y2="21" stroke="#2b5fad" stroke-width="1.5"/><line x1="25" y1="25" x2="39" y2="25" stroke="#2b5fad" stroke-width="1.5"/><text x="10" y="31" font-family="Arial" font-weight="900" font-size="14" fill="white">W</text></svg>` },
+  ppt:     { label:'PowerPoint', ms365:true, emoji:'📑', svg:`<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#b7472a"/><rect x="6" y="8" width="22" height="32" rx="3" fill="#d4583a"/><rect x="22" y="11" width="20" height="26" rx="2" fill="white" opacity=".95"/><text x="10" y="31" font-family="Arial" font-weight="900" font-size="14" fill="white">P</text></svg>` },
+  onedrive:{ label:'OneDrive', ms365:true, emoji:'☁️', svg:`<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#0364b8"/><path d="M10 34 Q12 24 22 24 Q26 18 34 21 Q40 24 40 34Z" fill="white"/><path d="M6 34 Q8 26 17 26 Q19 20 27 22 Q22 26 22 34Z" fill="#83c8fa"/></svg>` },
+  chrome:  { label:'Chrome', ms365:false, emoji:'🌐', svg:`<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><circle cx="24" cy="24" r="22" fill="#f5f5f5"/><path d="M24 24 L44 24 A20 20 0 0 0 14 6Z" fill="#ea4335"/><path d="M24 24 L14 6 A20 20 0 0 0 4 24Z" fill="#fbbc05"/><path d="M24 24 L4 24 A20 20 0 0 0 34 42Z" fill="#34a853"/><path d="M24 24 L34 42 A20 20 0 0 0 44 24Z" fill="#4285f4"/><circle cx="24" cy="24" r="9" fill="white"/><circle cx="24" cy="24" r="7" fill="#4285f4"/></svg>` },
+  vscode:  { label:'VS Code', ms365:false, emoji:'💻', svg:`<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#007acc"/><path d="M34 8 L12 22 L8 19 L6 21 L6 27 L8 29 L12 26 L34 40 L42 36 L42 12Z" fill="white" opacity=".9"/><path d="M6 21 L6 27 L12 24Z" fill="#007acc"/></svg>` },
+  slack:   { label:'Slack', ms365:false, emoji:'🎯', svg:`<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#fff"/><rect x="10" y="20" width="8" height="8" rx="4" fill="#e01e5a"/><rect x="6" y="20" width="8" height="8" rx="4" fill="#e01e5a" opacity=".5"/><rect x="20" y="10" width="8" height="8" rx="4" fill="#36c5f0"/><rect x="20" y="6" width="8" height="8" rx="4" fill="#36c5f0" opacity=".5"/><rect x="30" y="20" width="8" height="8" rx="4" fill="#2eb67d"/><rect x="34" y="20" width="8" height="8" rx="4" fill="#2eb67d" opacity=".5"/><rect x="20" y="30" width="8" height="8" rx="4" fill="#ecb22e"/><rect x="20" y="34" width="8" height="8" rx="4" fill="#ecb22e" opacity=".5"/></svg>` },
+  notion:  { label:'Notion', ms365:false, emoji:'📓', svg:`<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#1a1a1a"/><path d="M12 10 L12 38 L22 38 L22 20 L34 38 L38 38 L38 10 L28 10 L28 28 L16 10Z" fill="white"/></svg>` },
+  jira:    { label:'Jira', ms365:false, emoji:'🐛', svg:`<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#fff"/><path d="M24 8 L8 24 L16 32 L24 24 L32 32 L40 24Z" fill="#2684ff"/><path d="M24 24 L16 32 L24 40 L32 32Z" fill="#0052cc"/></svg>` },
+  figma:   { label:'Figma', ms365:false, emoji:'🎨', svg:`<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="10" fill="#fff"/><rect x="14" y="6" width="10" height="10" rx="5" fill="#f24e1e"/><rect x="24" y="6" width="10" height="10" rx="5" fill="#ff7262"/><rect x="14" y="16" width="10" height="10" rx="0" fill="#a259ff"/><rect x="14" y="26" width="10" height="10" rx="0" fill="#1abcfe"/><rect x="14" y="36" width="10" height="10" rx="5" fill="#0acf83"/><circle cx="29" cy="21" r="5" fill="#ff7262"/></svg>` }
+};
+
+// ── 各情境叫聲 ──
+const SPEECHES = {
+  yellow: {
+    happy:  ['Yaaay！(≧▽≦)', 'Hei hei！(*^▽^*)', 'Pikmin！(＾◡＾)', 'Yay！٩(◕‿◕)۶'],
+    angry:  ['Haa！！(╬ Ò﹏Ó)', 'EI！(＃`Д´)', 'Hora！(｀皿´)', 'Ngh！(>д<)'],
+    bored:  ['Haa...(-_-)zzz', 'Puu...(￣～￣;)', 'Ei...(´-ω-`)', '...Hei(¬_¬)'],
+    sad:    ['Pyaa...(っ˘̩╭╮˘̩)っ', 'Huu...(T_T)', 'Ei...(；△；)', 'Puu...(╥_╥)'],
+    full:   ['Pu～(￣X￣;)', 'Haa...(>_<)', 'Fuuu...(≧～≦)', 'Ngh...(；￣Д￣)'],
+    normal: ['Hei！(^ω^)', 'Pikmin！(•ᴗ•)', 'Yay～！(ﾉ◕ヮ◕)ﾉ', 'Haa！(≧◡≦)'],
+  },
+  red: {
+    happy:  ['Hora！(≧▽≦)', 'Ei ei！(*≧▽≦)', 'Yaa！(ﾉ≧∀≦)ﾉ', 'Cha！٩(^ᴗ^)۶'],
+    angry:  ['HORA！(╬◣д◢)', 'EI！！(＃`д´)', 'GR！(凸ಠ益ಠ)凸', 'Ngh！！(ง°益°)ง'],
+    bored:  ['Ho...( ˘ω˘ )', 'Ra...(-ω-)', '...ei(ーー;)', 'Fuu...(~_~;)'],
+    sad:    ['Ra...(；ω；)', 'Huu...(T▽T)', 'Ei...(ノ_<)', 'Ngh...(つ_<)'],
+    full:   ['Ugh...(≧～≦)', 'Ho...(>_<)', 'Boh...(￣～￣；)', 'Ra...(＋_＋)'],
+    normal: ['Hoi！(^ω^)', 'Ei！(•̀ᴗ•́)', 'Cha！(ﾉ´ヮ`)ﾉ', 'Ho！(≧◡≦)', 'Ra！(^_^)'],
+  },
+  blue: {
+    happy:  ['Pui pui！(≧▽≦)', 'Yui～！(*^▽^*)', 'Puu！(ﾉ◕ヮ◕)ﾉ', 'Myu！٩(◕‿◕)۶'],
+    angry:  ['PUI！！(╬ Ò﹏Ó)', 'Myu！(＃`Д´)', 'Ngh！(｀皿´)', 'Ui！！(>д<)'],
+    bored:  ['Pui...(-_-)', 'Ui...(´-ω-`)', 'Myu...(￣～￣)', 'Pu...(¬_¬)'],
+    sad:    ['Ui ui...(T_T)', 'Puu...(╥_╥)', 'Myu...(；△；)', 'Hyu...(っ˘̩╭╮˘̩)っ'],
+    full:   ['Pu...pu(￣X￣)', 'Myu...(>_<)', 'Uuu...(≧～≦)', 'Pui...(；￣Д￣)'],
+    normal: ['Pui！(•ᴗ•)', 'Ui～(^ω^)', 'Pui pui！(≧◡≦)', 'Hyu～(ﾉ´ヮ`)ﾉ', 'Myu！(^_^)'],
+  },
+  purple: {
+    happy:  ['DOHN！(≧▽≦)', 'Hora hora！٩(^▿^)۶', 'UNH！(*≧▽≦)', 'Boh boh！(ﾉ≧∀≦)ﾉ'],
+    angry:  ['HORA！！(╬◣д◢)', 'DOHN！(凸ಠ益ಠ)凸', 'NGH！！(ง°益°)ง', 'BOH！！(＃`皿´)'],
+    bored:  ['Boh...( ˘ω˘ )', 'Doh...(ーー;)', 'Ngh...(~_~;)', '...hora(-ω-)'],
+    sad:    ['Unh...(；ω；)', 'Doh...(T▽T)', 'Boh...(つ_<)', 'Hora...(ノ_<)'],
+    full:   ['Ugh...(≧～≦)', 'Boh...(>_<)', 'NNGGH...(；￣Д￣)', 'Doh...(＋_＋)'],
+    normal: ['Doh！(^ω^)', 'Hora！(•̀ᴗ•́)', 'Unh！(≧◡≦)', 'Boh！(ﾉ´ヮ`)ﾉ', 'DOHN！(≧▽≦)'],
+  },
+  white: {
+    happy:  ['Pi pi！(≧▽≦)', 'Hyui！(≧◡≦)', 'Pii♪(•ᴗ•)', 'Pi！٩(◕‿◕)۶'],
+    angry:  ['PII！！(╬ Ò﹏Ó)', 'Hyui！！(＃`Д´)', 'PI PI！(｀皿´)', 'Ngh！(>д<)'],
+    bored:  ['Pi...(-_-)', 'Pii...(´-ω-`)', 'Fui...(￣～￣)', '...pi(¬_¬)'],
+    sad:    ['Piiii...(T_T)', 'Hyuu...(╥_╥)', 'Fui...(；△；)', 'Pi...(っ˘̩╭╮˘̩)っ'],
+    full:   ['Pi...pu(￣X￣)', 'Pii...(>_<)', 'Fui...(≧～≦)', 'Hyuu...(；￣Д￣)'],
+    normal: ['Pi！(•ᴗ•)', 'Pii～(^ω^)', 'Hyui！(≧◡≦)', 'Pi pi！(ﾉ◕ヮ◕)ﾉ', 'Fui！(^_^)'],
+  },
+  rock: {
+    happy:  ['Ton ton！(≧▽≦)', 'KIN！٩(^▿^)۶', 'Gon！(*≧▽≦)', 'DON DON！(ﾉ≧∀≦)ﾉ'],
+    angry:  ['GOON！！(╬◣д◢)', 'KAN！！(凸ಠ益ಠ)凸', 'TON！！(ง°益°)ง', 'DON！！(＃`皿´)'],
+    bored:  ['Ton...( ˘ω˘ )', 'Ka...(ーー;)', 'Gon...(~_~;)', '...don(-ω-)'],
+    sad:    ['Don...(；ω；)', 'Ton...(T▽T)', 'Ka...(つ_<)', 'Gon...(ノ_<)'],
+    full:   ['Don...(≧～≦)', 'Ngh...(>_<)', 'Ton...(；￣Д￣)', 'Kan...(＋_＋)'],
+    normal: ['Ton！(^ω^)', 'Ka！(•̀ᴗ•́)', 'Gon！(≧◡≦)', 'Kin！(ﾉ´ヮ`)ﾉ', 'DON！(≧▽≦)'],
+  },
+  winged: {
+    happy:  ['Fuu fuu！(≧▽≦)', 'Pii♪♪(•ᴗ•)', 'Hyuu！٩(◕‿◕)۶', 'Wii wii！(ﾉ◕ヮ◕)ﾉ'],
+    angry:  ['HYUU！！(╬ Ò﹏Ó)', 'PII！！(＃`Д´)', 'Furu！！(｀皿´)', 'WII！！(>д<)'],
+    bored:  ['Fuu...(-_-)zzz', 'Pii...(´-ω-`)', 'Wii...(￣～￣)', 'Hyuu...(¬_¬)'],
+    sad:    ['Fuuu...(T_T)', 'Pii...(╥_╥)', 'Wii...(；△；)', 'Hyu...(っ˘̩╭╮˘̩)っ'],
+    full:   ['Fuu...pu(￣X￣)', 'Pii...(>_<)', 'Wii...(≧～≦)', 'Hyuu...(；￣Д￣)'],
+    normal: ['Fuu～(^ω^)', 'Hyuu！(•ᴗ•)', 'Pii♪(≧◡≦)', 'Furu～(ﾉ´ヮ`)ﾉ', 'Wii！(^_^)'],
+  },
+  ice: {
+    happy:  ['Brrr！♪(≧▽≦)', 'Kyuu！٩(^▿^)۶', 'Hyu hyu！(*≧▽≦)', 'Piku！(ﾉ≧∀≦)ﾉ'],
+    angry:  ['KYUU！！(╬◣д◢)', 'BRRR！！(凸ಠ益ಠ)凸', 'HYU！！(ง°益°)ง', 'Ngh！！(＃`皿´)'],
+    bored:  ['Brrr...( ˘ω˘ )', 'Kyuu...(ーー;)', 'Hyu...(~_~;)', 'Piku...(-ω-)'],
+    sad:    ['Kyuu...(；ω；)', 'Brr...(T▽T)', 'Hyu...(つ_<)', 'Fui...(ノ_<)'],
+    full:   ['Brr...pu(≧～≦)', 'Kyuu...(>_<)', 'Hyu...(；￣Д￣)', 'Piku...(＋_＋)'],
+    normal: ['Brrr！(^ω^)', 'Hyu！(•̀ᴗ•́)', 'Piku！(≧◡≦)', 'Fui！(ﾉ´ヮ`)ﾉ', 'Kyuu～(≧▽≦)'],
+  },
+};
+
+function saySpeech(p, mood) {
+  var s = SPEECHES[p.type];
+  if (!s) return;
+  var arr = s[mood] || s.normal;
+  say(p, arr[Math.random()*arr.length|0]);
+}
+// lift say handled by saySpeech
+// FEED_SAY replaced by saySpeech moods
+const PETAL_EMOJIS = { yellow:'🌼', red:'🌸', blue:'🌺', purple:'💜',
+                       white:'🤍', rock:'🍀', winged:'🌸', ice:'❄️' };
+
+// ═══════════════════════════════════════
+// Topper 生成
+// ═══════════════════════════════════════
+function makeTopper(type, growth, flowerColor) {
+  var stemColor = { yellow:'#b8941c', red:'#7a1f1f', blue:'#2d4878', purple:'#5d4078',
+                    white:'#b8b0a0', rock:'#555555', winged:'#c44878', ice:'#5a8aa0' }[type] || '#5a8a2a';
+  var stem = '<path d="M64 58Q65 50 66 44" stroke="'+stemColor+'" stroke-width="3" fill="none" stroke-linecap="round"/>';
+
+  if (growth === 1) { // 葉子
+    return stem + '<path d="M66 44Q72 30 88 34Q90 44 76 50Q68 50 66 44Z" fill="#7ab84a"/>' +
+      '<path d="M66 44Q76 36 86 36" stroke="#5a9030" stroke-width="1.5" fill="none"/>';
+  }
+  if (growth === 2) { // 花苞
+    return stem +
+      '<path d="M61 42 Q67 47 73 42 Q72 37 67 36 Q62 37 61 42Z" fill="#4a8a28"/>' +
+      '<ellipse cx="67" cy="33" rx="8" ry="10" fill="#c8a8e8"/>' +
+      '<ellipse cx="64" cy="29" rx="2.5" ry="3.5" fill="white" opacity=".45"/>';
+  }
+  if (growth === 3) { // 開花
+    var c = (flowerColor && flowerColor.color) ? flowerColor.color : DEF_PETAL[type];
+    var sk = (flowerColor && flowerColor.stroke) ? ' stroke="'+flowerColor.stroke+'" stroke-width="0.8"' : '';
+    return stem +
+      '<circle cx="67" cy="33" r="5.5" fill="'+c+'"'+sk+'/>'+
+      '<circle cx="74.2" cy="36.2" r="5.5" fill="'+c+'"'+sk+'/>'+
+      '<circle cx="71.4" cy="44" r="5.5" fill="'+c+'"'+sk+'/>'+
+      '<circle cx="62.6" cy="44" r="5.5" fill="'+c+'"'+sk+'/>'+
+      '<circle cx="59.8" cy="36.2" r="5.5" fill="'+c+'"'+sk+'/>'+
+      '<circle cx="67" cy="39" r="4" fill="#f5d654"/>';
+  }
+  // growth === 0 禿頭：只有短莖
+  return '<line x1="64" y1="58" x2="65" y2="52" stroke="'+stemColor+'" stroke-width="3" stroke-linecap="round"/>';
+}
+
+function buildSVG(type, growth, flowerColor) {
+  return SVGS[type].replace('%%T%%', makeTopper(type, growth, flowerColor));
+}
+
+// ═══════════════════════════════════════
+// 狀態
+// ═══════════════════════════════════════
+const SZ = 100, GH = 100;
+var pikmins = [], foods = [];
+var pid = 0, tick = 0;
+var selEss = null;   // 已選精華
+var hBtnEl = null;   // 採集按鈕
+var petalCounts = {};
+
+// ═══════════════════════════════════════
+// 草地
+// ═══════════════════════════════════════
+(function(){
+  var g = document.getElementById('ground');
+  for (var i=0; i<30; i++) {
+    var t = document.createElement('span');
+    t.className = 'grass';
+    t.textContent = ['🌿','🌱','🍀'][Math.random()*3|0];
+    t.style.left = (Math.random()*100)+'%';
+    t.style.fontSize = (14+Math.random()*8)+'px';
+    g.appendChild(t);
+  }
+})();
+
+// ═══════════════════════════════════════
+// 召喚
+// ═══════════════════════════════════════
+function spawn(type) {
+  var W = window.innerWidth;
+  var groundY = window.innerHeight - GH - SZ;
+  var x = 60 + Math.random() * (W - 200);
+  var isWinged = type === 'winged';
+  var y = isWinged ? groundY - 60 - Math.random()*60 : groundY;
+
+  var el = document.createElement('div');
+  el.className = 'pikmin ' + (isWinged ? 'flying' : 'walking');
+
+  var p = {
+    id: pid++, el: el, type: type, x: x, y: y,
+    vx: (Math.random()>.5?1:-1) * (0.8 + Math.random()),
+    vy: 0, dragging: false,
+    growth: 1,        // 出生就有葉子
+    flowerColor: null,
+    outlookStage: 0,  // 0=沒吃過, 1=吃過一次(花苞), 2=吃過兩次(完整路徑)
+    liftedBy: null,
+    lifting: [], liftTimer: 0,
+    flyPhase: Math.random() * Math.PI * 2,
+  };
+
+  el.style.cssText = 'left:'+x+'px;top:'+y+'px;width:'+SZ+'px;height:'+SZ+'px';
+  el.innerHTML = buildSVG(type, p.growth, null);
+  document.body.appendChild(el);
+  pikmins.push(p);
+  bindEvents(p);
+  return p;
+}
+
+function bindEvents(p) {
+  var el = p.el, ox, oy, ex, ey;
+  el.addEventListener('mousedown', function(e){
+    if (e.button !== 0) return;
+    e.preventDefault(); e.stopPropagation();
+    p.dragging = true;
+    el.classList.add('dragging');
+    el.classList.remove('walking','flying','lifted');
+    ox=e.clientX; oy=e.clientY; ex=p.x; ey=p.y;
+  });
+  document.addEventListener('mousemove', function(e){
+    if (!p.dragging) return;
+    p.x = ex+(e.clientX-ox); p.y = ey+(e.clientY-oy);
+    el.style.left=p.x+'px'; el.style.top=p.y+'px';
+    moveBub(p);
+  });
+  document.addEventListener('mouseup', function(){
+    if (!p.dragging) return;
+    p.dragging = false;
+    el.classList.remove('dragging');
+    el.classList.add(p.liftedBy ? 'lifted' : p.type==='winged' ? 'flying' : 'walking');
+  });
+}
+
+function spawnAll() {
+  ['yellow','red','blue','rock','purple','white','winged','ice']
+    .forEach(function(t,i){ setTimeout(function(){ spawn(t); }, i*180); });
+}
+function clearAll() {
+  pikmins.forEach(function(p){ p.el.remove(); removeBub(p); });
+  pikmins = [];
+}
+
+// ═══════════════════════════════════════
+// 說話泡泡
+// ═══════════════════════════════════════
+function say(p, text) {
+  removeBub(p);
+  var w = document.createElement('div');
+  w.className = 'bwrap'; w.id = 'bub'+p.id;
+  var b = document.createElement('div'); b.className = 'bubble'; b.textContent = text;
+  w.appendChild(b); document.body.appendChild(w);
+  posBub(w, p);
+  setTimeout(function(){ w.remove(); }, 2200);
+}
+function posBub(w, p) { w.style.left=(p.x+SZ/2)+'px'; w.style.top=(p.y-36)+'px'; }
+function moveBub(p) { var w=document.getElementById('bub'+p.id); if(w) posBub(w,p); }
+function removeBub(p) { var w=document.getElementById('bub'+p.id); if(w) w.remove(); }
+function rnd(a) { return a[Math.random()*a.length|0]; }
+function getPik(id) { return pikmins.find(function(p){ return p.id===id; }); }
+
+// ═══════════════════════════════════════
+// 餵食
+// ═══════════════════════════════════════
+function doFeed(p, kind, emoji, appId) {
+  // 特效
+  var eff = document.createElement('div');
+  eff.style.cssText = 'position:fixed;z-index:400;font-size:28px;pointer-events:none;left:'+(p.x+30)+'px;top:'+(p.y+10)+'px';
+  eff.textContent = emoji;
+  document.body.appendChild(eff);
+  eff.animate([{opacity:1,transform:'translateY(0)'},{opacity:0,transform:'translateY(-80px) scale(1.5)'}],
+    {duration:1200,fill:'forwards'}).onfinish = function(){ eff.remove(); };
+
+  if (p.growth >= 3) { saySpeech(p,'full'); petalBurst(p); return; }
+
+  var newG = p.growth;
+  var speech;
+
+  var isOutlook = (appId === 'outlook');
+  var fc = null;
+  if (appId && APP_COLOR[appId]) fc = { color: APP_COLOR[appId], stroke: APP_STROKE[appId]||null };
+  if (isOutlook) fc = { color:'white', stroke:'#d8d8d8' };
+
+  if (isOutlook && p.growth === 1) {
+    // 基本精華：葉子 → 花苞（只有 Outlook 能做到）
+    newG = 2;
+    p.flowerColor = fc;
+    p.outlookStage = 1;
+    speech = null; setTimeout(function(){ saySpeech(p,'normal'); }, 100);
+
+  } else if (p.growth === 2) {
+    // 花苞 → 開花（任何精華都可以，兩倍花瓣）
+    newG = 3;
+    p.flowerColor = fc || p.flowerColor; // 用新精華的顏色，沒有就保留花苞顏色
+    p.outlookStage = 2; // 標記為完整路徑（從花苞來的）
+    speech = null; setTimeout(function(){ saySpeech(p,'happy'); }, 100);
+    showStatus('✨ 花苞→開花！採集可得 8 片花瓣！');
+
+  } else if (p.growth === 1 && !isOutlook) {
+    // 葉子 + 非 Outlook → 直接開花（一倍花瓣）
+    newG = 3;
+    p.flowerColor = fc;
+    p.outlookStage = 0; // 非完整路徑
+    speech = null; setTimeout(function(){ saySpeech(p,'happy'); }, 100);
+    showStatus('🌸 直接開花！採集可得 4 片花瓣');
+
+  } else {
+    // 其他情況（禿頭等）
+    newG = p.growth + 1;
+    if (fc) p.flowerColor = fc;
+    speech = null; setTimeout(function(){ saySpeech(p,'normal'); }, 100);
+  }
+
+  p.growth = newG;
+  p.el.innerHTML = buildSVG(p.type, p.growth, p.flowerColor);
+  if (speech) say(p, speech);
+  if (newG===3) petalBurst(p);
+  showStatus(['','🌱 葉子','🌼 花苞','🌸 開花！'][newG]);
+}
+
+function petalBurst(p) {
+  var em = PETAL_EMOJIS[p.type]||'🌸';
+  for (var i=0; i<10; i++) {
+    (function(idx){
+      setTimeout(function(){
+        var e = document.createElement('div'); e.className='hpetal'; e.textContent=em;
+        e.style.left=(p.x+10+Math.random()*80)+'px'; e.style.top=(p.y+10)+'px';
+        e.style.animationDuration=(.5+Math.random()*.8)+'s';
+        document.body.appendChild(e);
+        setTimeout(function(){ e.remove(); }, 1400);
+      }, idx*60);
+    })(i);
+  }
+}
+
+// ═══════════════════════════════════════
+// 精華灑食
+// ═══════════════════════════════════════
+function throwAt(cx, cy) {
+  if (!selEss) return;
+  var app = APP_ICONS[selEss.id];
+  var groundY = window.innerHeight - GH - 30;
+  var tx = cx - 18 + (Math.random()-0.5)*20;
+  var startY = cy - 120;
+
+  var el = document.createElement('div');
+  el.className = 'food';
+  if (app) el.innerHTML = app.svg;
+  else { el.style.fontSize='28px'; el.textContent = selEss.emoji; }
+  el.style.left = tx+'px';
+  el.style.top  = startY+'px';
+  document.body.appendChild(el);
+
+  foods.push({ el:el, x:tx, y:startY,
+    kind:selEss.kind, emoji:selEss.emoji, appId:selEss.id,
+    eaten:false, falling:true, vy:2, vx:(Math.random()-.5) });
+}
+
+// ═══════════════════════════════════════
+// 精華選單
+// ═══════════════════════════════════════
+function buildEssencePanel() {
+  var msGrid = document.getElementById('msGrid');
+  var otGrid = document.getElementById('otGrid');
+  Object.keys(APP_ICONS).forEach(function(id){
+    var app = APP_ICONS[id];
+    var div = document.createElement('div');
+    div.className = 'eitem'; div.dataset.id = id;
+    var svgSmall = app.svg.replace('viewBox="0 0 48 48"','viewBox="0 0 48 48" width="36" height="36"');
+    div.innerHTML = svgSmall + '<span>'+app.label+'</span>';
+    div.addEventListener('click', function(e){ e.stopPropagation(); selectEss(id, app); });
+    (app.ms365 ? msGrid : otGrid).appendChild(div);
+  });
+}
+
+function selectEss(id, app) {
+  selEss = { id:id, kind:app.ms365?'ms365':'other', emoji:app.emoji };
+  closePanel('essPanel');
+  // 更新按鈕顯示
+  var btn = document.getElementById('essBtn');
+  var svgBtn = app.svg.replace('viewBox="0 0 48 48"','viewBox="0 0 48 48" width="36" height="36"');
+  btn.innerHTML = svgBtn + '<div class="lbl">點空白灑</div>';
+  btn.style.background = 'white'; btn.style.padding = '8px';
+  // 顯示提示
+  var h = document.getElementById('essHint');
+  h.textContent = app.label + ' 精華 — 點空白處灑食！';
+  h.style.display = 'block';
+  showStatus(app.label+' 精華備好！點空白處灑食');
+}
+
+function cancelEss() {
+  selEss = null;
+  var btn = document.getElementById('essBtn');
+  btn.innerHTML = '🌿<div class="lbl">精華</div>';
+  btn.style.background = ''; btn.style.padding = '';
+  document.getElementById('essHint').style.display = 'none';
+}
+
+// ═══════════════════════════════════════
+// 採集花瓣
+// ═══════════════════════════════════════
+// showHarvestBtn 已移除，改為直接單擊採集
+
+function doHarvest(p) {
+  if (p.growth < 3) return;
+
+  // 4 個花瓣特效
+  var em = getColorEmoji((p.flowerColor && p.flowerColor.color) ? p.flowerColor.color : '') || PETAL_EMOJIS[p.type] || '🌸';
+  for (var i=0; i<16; i++) {
+    (function(idx){
+      setTimeout(function(){
+        var e = document.createElement('div'); e.className='hpetal'; e.textContent=em;
+        e.style.left=(p.x+5+Math.random()*90)+'px';
+        e.style.top=(p.y+5+Math.random()*30)+'px';
+        e.style.fontSize=(14+Math.random()*10)+'px';
+        e.style.animationDuration=(.4+Math.random()*1)+'s';
+        document.body.appendChild(e);
+        setTimeout(function(){ e.remove(); }, 1600);
+      }, idx*40);
+    })(i);
+  }
+
+  // 判斷是否走完 Outlook 完整路徑 → 兩倍花瓣
+  // 從花苞開出的花（任何精華）= 8片；直接從葉子開 = 4片
+  var isFromBud = (p.outlookStage === 2);
+  var petalAmt = isFromBud ? 8 : 4;
+  var isOutlookFull = isFromBud; // 保持相容
+  var colorKey = (p.flowerColor && p.flowerColor.color) ? p.flowerColor.color : '#default_'+p.type;
+  var colorLabel = getColorLabel(p.flowerColor, p.type);
+  if (!petalCounts[colorKey]) petalCounts[colorKey] = { count:0, em:em, label:colorLabel, color:colorKey };
+  petalCounts[colorKey].count += petalAmt;
+  updateCounter();
+  if (isFromBud) showStatus('✨ 花苞培育！獲得 8 片花瓣！');
+  else showStatus('🌸 獲得 4 片花瓣');
+
+  // 立刻變禿頭，重置 outlook 路徑
+  p.growth = 0;
+  p.flowerColor = null;
+  p.outlookStage = 0;
+  p.el.innerHTML = buildSVG(p.type, p.growth, null);
+  saySpeech(p, 'sad');
+
+  // 10 分鐘後長葉子
+  var pid2 = p.id;
+  setTimeout(function(){
+    var pp = pikmins.find(function(q){ return q.id===pid2; });
+    if (!pp || pp.growth > 0) return; // 已經有東西就不覆蓋
+    pp.growth = 1;
+    pp.el.innerHTML = buildSVG(pp.type, pp.growth, null);
+    saySpeech(pp, 'happy');
+  }, 10 * 60 * 1000);
+}
+
+function updateCounter() {
+  // 更新右下角按鈕 badge
+  var total = Object.values(petalCounts).reduce(function(a,b){return a+(b.count||0);},0);
+  var btn = document.getElementById('petalBtn');
+  if (btn) btn.innerHTML = '🌸' + (total>0?'<div style="position:absolute;top:-4px;right:-4px;background:#e91e8c;color:white;border-radius:50%;width:18px;height:18px;font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center;">'+total+'</div>':'') + '<div class="lbl">花瓣</div>';
+}
+
+// ═══════════════════════════════════════
+// 面板控制
+// ═══════════════════════════════════════
+function togglePanel(id, e) {
+  if (e) e.stopPropagation();
+  var p = document.getElementById(id);
+  var wasOpen = p.classList.contains('open');
+  document.querySelectorAll('.panel').forEach(function(el){ el.classList.remove('open'); });
+  if (!wasOpen) {
+    p.classList.add('open');
+    if (id === 'petalPanel') buildPetalGrid(); // 每次打開都重建
+  }
+}
+function closePanel(id) { document.getElementById(id).classList.remove('open'); }
+
+// 點外關閉面板
+document.addEventListener('click', function(e){
+  if (e.target.closest('.panel') || e.target.closest('.fbtn')) return;
+  document.querySelectorAll('.panel').forEach(function(el){ el.classList.remove('open'); });
+  if (hBtnEl && !hBtnEl.contains(e.target)) { hBtnEl.remove(); hBtnEl=null; }
+});
+
+// 精華模式：點空白灑食；點皮克敏取消
+document.addEventListener('click', function(e){
+  if (!selEss) return;
+  if (e.target.closest('.fbtn') || e.target.closest('.panel') ||
+      e.target.closest('.hbtn') || e.target.closest('.eitem')) return;
+  var pikEl = e.target.closest('.pikmin');
+  if (pikEl) {
+    // 點皮克敏 → 取消精華模式（不餵）
+    cancelEss();
+    return;
+  }
+  throwAt(e.clientX, e.clientY);
+});
+
+// 單擊皮克敏：開花 → 直接採集；否則說話
+document.addEventListener('click', function(e){
+  if (selEss) return; // 精華模式不觸發
+  var pikEl = e.target.closest('.pikmin');
+  if (!pikEl) return;
+  var p = pikmins.find(function(q){ return q.el===pikEl; });
+  if (!p) return;
+  if (p.growth === 3) {
+    doHarvest(p);
+  } else {
+    saySpeech(p, 'normal');
+  }
+}, true); // capture 確保比其他 click 先跑
+
+// ═══════════════════════════════════════
+// 狀態提示
+// ═══════════════════════════════════════
+var stTimer;
+function showStatus(txt) {
+  var s = document.getElementById('status');
+  s.textContent = txt; s.classList.add('show');
+  clearTimeout(stTimer); stTimer = setTimeout(function(){ s.classList.remove('show'); }, 2200);
+}
+
+// ═══════════════════════════════════════
+// 主迴圈
+// ═══════════════════════════════════════
+function animate() {
+  tick++;
+  var W = window.innerWidth;
+  var groundY = window.innerHeight - GH - SZ;
+
+  // ── 皮克敏移動 ──
+  for (var i=0; i<pikmins.length; i++) {
+    var p = pikmins[i];
+    if (p.dragging || p.liftedBy !== null) continue;
+
+    // 羽翼：種花模式優先
+    if (p.type === 'winged' && p.plantMode) { updatePlanting(p); continue; }
+    // 羽翼：全場飛 + 會追食物
+    if (p.type === 'winged') {
+      // 空中+地面的食物都追（粉皮會飛，不限落地）
+      var gfW = foods.filter(function(f){ return !f.eaten; });
+      var tY;
+      if (gfW.length > 0) {
+        // 找最近的食物（不管在不在地上）
+        var nW=null, nDW=9999;
+        gfW.forEach(function(f){
+          var d=Math.hypot(f.x-(p.x+SZ/2), f.y-(p.y+SZ/2));
+          if(d<nDW){nDW=d;nW=f;}
+        });
+        if (nW) {
+          p.vx = nW.x > (p.x+SZ/2) ? 2.4 : -2.4;
+          tY = nW.y; // 直接飛到食物的 y 位置
+          if (nDW < SZ*0.75 && !nW.eaten) {
+            nW.eaten = true;
+            nW.el.classList.add('eaten');
+            setTimeout(function(){ nW.el.remove(); }, 300);
+            foods = foods.filter(function(f){ return f!==nW; });
+            doFeed(p, nW.kind, nW.emoji, nW.appId);
+          }
+        }
+      } else {
+        // 沒食物：自由飄浮
+        tY = (window.innerHeight - GH - SZ) * 0.25 + Math.sin(tick*.015+p.flyPhase)*90;
+        if (Math.random() < 0.012) p.vx = (Math.random()>.5?1:-1)*(0.9+Math.random()*1.1);
+      }
+      p.y += (tY - p.y) * 0.04;
+      p.x += p.vx;
+      if (p.x < 0) { p.x=0; p.vx=Math.abs(p.vx); }
+      if (p.x > W-SZ) { p.x=W-SZ; p.vx=-Math.abs(p.vx); }
+      p.el.style.transform = p.vx<0?'scaleX(-1)':'scaleX(1)';
+      p.el.style.left=p.x+'px'; p.el.style.top=p.y+'px';
+      moveBub(p); continue;
+    }
+
+    // 紫皮：舉人
+    if (p.type === 'purple') {
+      // 嘗試舉人
+      if (p.lifting.length < 3 && Math.random() < 0.004) {
+        var cands = pikmins.filter(function(q){
+          return q.id!==p.id && q.type!=='purple' && q.liftedBy===null && !q.dragging;
+        });
+        var closest=null, minD=180;
+        cands.forEach(function(q){ var d=Math.hypot(q.x-p.x,q.y-p.y); if(d<minD){minD=d;closest=q;} });
+        if (closest) {
+          p.lifting.push(closest.id); closest.liftedBy=p.id;
+          closest.el.classList.remove('walking','flying'); closest.el.classList.add('lifted');
+          if (p.lifting.length===1) say(p, rnd(LIFT_SAY));
+          saySpeech(closest, 'angry');
+          if (!p.liftTimer) p.liftTimer = 150 + Math.random()*150|0;
+        }
+      }
+      // 更新被舉位置
+      p.lifting.forEach(function(lid, idx){
+        var c = getPik(lid); if (!c) return;
+        c.x = p.x + (idx%2===0?-1:1)*(Math.floor(idx/2)+.5)*44;
+        c.y = p.y - SZ*(Math.floor(idx/2)+1)+8;
+        c.el.style.left=c.x+'px'; c.el.style.top=c.y+'px'; moveBub(c);
+      });
+      if (p.liftTimer > 0) {
+        p.liftTimer--;
+        if (p.liftTimer === 0) {
+          p.lifting.forEach(function(lid){
+            var lp=getPik(lid);
+            if(lp){ lp.liftedBy=null; lp.el.classList.remove('lifted'); lp.el.classList.add('walking'); }
+          });
+          p.lifting = [];
+        }
+      }
+    }
+
+    // 搶食
+    var gfoods = foods.filter(function(f){ return !f.eaten && !f.falling; });
+    if (gfoods.length > 0 && p.type !== 'purple') {
+      var near=null, nd=9999;
+      gfoods.forEach(function(f){ var d=Math.abs(f.x-(p.x+SZ/2)); if(d<nd){nd=d;near=f;} });
+      if (near && nd < 350) {
+        p.vx = near.x > (p.x+SZ/2) ? 1.8 : -1.8;
+        if (nd < SZ*0.6 && !near.eaten) {
+          near.eaten = true;
+          near.el.classList.add('eaten');
+          setTimeout(function(){ near.el.remove(); }, 300);
+          foods = foods.filter(function(f){ return f!==near; });
+          doFeed(p, near.kind, near.emoji, near.appId);
+        }
+      }
+    }
+
+    // 種花模式
+    if (p.plantMode) { updatePlanting(p); continue; }
+
+    // 重力
+    if (p.y < groundY) { p.vy = (p.vy||0)+0.6; p.y+=p.vy; if(p.y>groundY){p.y=groundY;p.vy=0;} }
+    else p.vy = 0;
+
+    // 保持移動
+    if (Math.abs(p.vx) < 0.5) p.vx = (p.vx>=0?1:-1)*(0.6+Math.random()*0.8);
+    if (Math.random() < 0.005) p.vx = -p.vx;
+    // 偶爾隨機發出無聊叫聲
+    if (Math.random() < 0.0008) saySpeech(p, 'bored');
+    p.x += p.vx;
+    if (p.x < 0) { p.x=0; p.vx=Math.abs(p.vx); }
+    if (p.x > W-SZ) { p.x=W-SZ; p.vx=-Math.abs(p.vx); }
+    p.el.style.transform = p.vx<0?'scaleX(-1)':'scaleX(1)';
+    p.el.style.left=p.x+'px'; p.el.style.top=p.y+'px';
+    moveBub(p);
+  }
+
+  // ── 食物物理 ──
+  var groundF = window.innerHeight - GH - 30;
+  for (var fi=0; fi<foods.length; fi++) {
+    var f = foods[fi];
+    if (f.eaten || !f.falling) continue;
+    f.vy += 0.22;
+    f.x  += f.vx;
+    f.y  += f.vy;
+    f.el.style.left = Math.round(f.x)+'px';
+    f.el.style.top  = Math.round(f.y)+'px';
+    if (f.y >= groundF) {
+      f.y = groundF; f.vy=0; f.vx=0; f.falling=false;
+      f.el.style.top = groundF+'px';
+      (function(food){ setTimeout(function(){
+        if (!food.eaten) { food.eaten=true; food.el.remove(); foods=foods.filter(function(x){return x!==food;}); }
+      }, 8000); })(f);
+    }
+  }
+
+  requestAnimationFrame(animate);
+}
+
+// ═══════════════════════════════════════
+// 初始化
+// ═══════════════════════════════════════
+
+
+// 顏色標籤對應
+var COLOR_LABELS = {
+  'white': '白色', '#d8d8d8': '白色',
+  '#7b83eb': 'Teams紫', '#21a366': 'Excel綠', '#2b5fad': 'Word藍',
+  '#ff6b4a': 'PPT橘', '#83c8fa': 'OneDrive藍', '#fbbc05': 'Chrome黃',
+  '#007acc': 'VSCode藍', '#e01e5a': 'Slack桃', '#aaaaaa': 'Notion灰',
+  '#2684ff': 'Jira藍', '#a259ff': 'Figma紫',
+  '#ffbbbb': '紅花', '#ff7777': '藍花', '#c8a8e8': '紫花',
+  '#aaffaa': '岩石', '#cc88ee': '羽翼', '#cceeff': '冰花',
+};
+var COLOR_EMOJI = {
+  'white': '🤍', '#7b83eb': '💜', '#21a366': '💚', '#2b5fad': '💙',
+  '#ff6b4a': '🧡', '#83c8fa': '🩵', '#fbbc05': '💛', '#007acc': '🔵',
+  '#e01e5a': '🩷', '#aaaaaa': '🩶', '#2684ff': '💙', '#a259ff': '💜',
+  '#ffbbbb': '🌸', '#ff7777': '🌺', '#c8a8e8': '💐', '#aaffaa': '🍀',
+  '#cc88ee': '🌸', '#cceeff': '❄️',
+};
+// 預設皮克敏花色
+var TYPE_DEFAULT_COLOR = {
+  yellow:'white', red:'#ffbbbb', blue:'#ff7777', purple:'#c8a8e8',
+  white:'white', rock:'#aaffaa', winged:'#cc88ee', ice:'#cceeff'
+};
+
+function getColorLabel(flowerColor, type) {
+  var c = (flowerColor && flowerColor.color) ? flowerColor.color : (TYPE_DEFAULT_COLOR[type]||'white');
+  return COLOR_LABELS[c] || c;
+}
+function getColorEmoji(colorKey) {
+  return COLOR_EMOJI[colorKey] || '🌸';
+}
+
+// ═══════════════════════════════════════
+// 花瓣庫存 & 種花系統
+// ═══════════════════════════════════════
+var selectedPetalType = null;
+var isPlanting = false;
+var plantingPikmin = null;
+var plantQueue = [];   // 待種的花數量
+
+var PETAL_INFO = {
+  yellow: { name:'黃色', em:'🌼' },
+  red:    { name:'紅色', em:'🌸' },
+  blue:   { name:'藍色', em:'🌺' },
+  purple: { name:'紫色', em:'💜' },
+  white:  { name:'白色', em:'🤍' },
+  rock:   { name:'岩石', em:'🍀' },
+  winged: { name:'羽翼', em:'🌸' },
+  ice:    { name:'冰系', em:'❄️' },
+};
+
+// 花瓣對應種出的小花 emoji
+var PLANT_FLOWER = {
+  yellow:'🌻', red:'🌷', blue:'💙', purple:'💐',
+  white:'🌼', rock:'🌿', winged:'🌸', ice:'🔵'
+};
+
+function buildPetalGrid() {
+  var grid = document.getElementById('petalGrid');
+  grid.innerHTML = '';
+  var keys = Object.keys(petalCounts);
+  if (keys.length === 0) {
+    grid.innerHTML = '<div style="grid-column:span 2;text-align:center;color:#bbb;font-size:13px;padding:16px">還沒有收集任何花瓣<br>點開花的皮克敏來採集！</div>';
+    return;
+  }
+  keys.forEach(function(colorKey){
+    var info = petalCounts[colorKey];
+    if (!info || info.count <= 0) return;
+    var card = document.createElement('div');
+    card.className = 'petal-card has-petals';
+    card.dataset.colorkey = colorKey;
+    card.innerHTML = '<span class="pem">'+info.em+'</span>' +
+      '<div class="pinfo">' +
+        '<div class="pname">'+info.label+'</div>' +
+        '<div class="pcnt">x'+info.count+'</div>' +
+      '</div>';
+    card.addEventListener('click', function(e){
+      e.stopPropagation();
+      selectPetalColorKey(colorKey);
+    });
+    grid.appendChild(card);
+  });
+}
+
+function selectPetalColorKey(colorKey) {
+  selectedPetalType = colorKey;
+  document.querySelectorAll('.petal-card').forEach(function(c){
+    c.classList.toggle('selected', c.dataset.colorkey === colorKey);
+  });
+  var info = petalCounts[colorKey];
+  var btn = document.getElementById('plantBtn');
+  btn.classList.add('show');
+  btn.textContent = '🌱 種' + (info?info.label:'') + '花（1片=20朵）';
+}
+
+// ── 種花 SVG 產生器 ──
+function makeFlowerSVG(color, size, noStem) {
+  size = size || 28;
+  var r = size/2;
+  var petals = '';
+  for (var i=0;i<5;i++){
+    var angle = -Math.PI/2 + i*(2*Math.PI/5);
+    var px = r + Math.cos(angle)*r*.55;
+    var py = r + Math.sin(angle)*r*.55;
+    petals += '<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="'+(r*.38).toFixed(1)+'" fill="'+color+'" opacity=".92"/>';
+  }
+  if (noStem) {
+    // 無莖版（粉皮空中種）
+    return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'" xmlns="http://www.w3.org/2000/svg">' +
+      petals +
+      '<circle cx="'+r+'" cy="'+r+'" r="'+(r*.3).toFixed(1)+'" fill="#f5d654"/>' +
+      '</svg>';
+  }
+  var stemH = size * 0.7;
+  return '<svg width="'+size+'" height="'+(size+stemH)+'" viewBox="0 0 '+size+' '+(size+stemH)+'" xmlns="http://www.w3.org/2000/svg">' +
+    '<line x1="'+r+'" y1="'+size+'" x2="'+r+'" y2="'+(size+stemH)+'" stroke="#5a8a2a" stroke-width="2" stroke-linecap="round"/>' +
+    petals +
+    '<circle cx="'+r+'" cy="'+r+'" r="'+(r*.3).toFixed(1)+'" fill="#f5d654"/>' +
+    '</svg>';
+}
+
+// 屁股光暈
+function addButtGlow(p, color) {
+  removeButtGlow(p);
+  var g = document.createElement('div');
+  g.className = 'butt-glow';
+  g.id = 'glow'+p.id;
+  g.style.cssText = 'width:40px;height:20px;background:radial-gradient(ellipse,'+color+'cc,transparent 70%)';
+  p.el.appendChild(g);
+}
+function removeButtGlow(p) {
+  var g = document.getElementById('glow'+p.id);
+  if (g) g.remove();
+}
+
+// 全局種花狀態
+var globalPlantJob = null;
+// { colorKey, color, flowerEm, totalPerPetal:20, totalFlowers, done, spacing }
+
+function startPlanting() {
+  if (!selectedPetalType) return;
+  var petalInfo = petalCounts[selectedPetalType];
+  if (!petalInfo || petalInfo.count <= 0) { showStatus('花瓣不足！'); return; }
+
+  // 消耗「全部」同色花瓣
+  var totalPetals = petalInfo.count;
+  var totalFlowers = totalPetals * 20;
+  petalCounts[selectedPetalType].count = 0;
+  updateCounter();
+  buildPetalGrid();
+  closePanel('petalPanel');
+
+  var color = petalInfo.color || 'white';
+  // 讓所有皮克敏（除紫皮）進入種花模式
+  var workers = pikmins.filter(function(p){ return p.type!=='purple' && !p.dragging && p.liftedBy===null; });
+  if (workers.length===0){ showStatus('沒有皮克敏！'); return; }
+
+  globalPlantJob = {
+    colorKey: selectedPetalType,
+    color: color,
+    totalFlowers: totalFlowers,
+    done: 0,
+    spacing: 55, // px between flowers
+  };
+
+  workers.forEach(function(p){
+    p.plantMode = true;
+    p.plantDir = Math.random()>.5 ? 1 : -1;
+    p._lastPlantX = null;
+    p._lastPlantY = null;
+    addButtGlow(p, color);
+    // 粉皮在天空種，其他在地面
+    if (p.type !== 'winged') {
+      p.y = window.innerHeight - GH - SZ;
+      p.vy = 0;
+    }
+  });
+
+  showStatus('🌱 '+petalInfo.label+' x'+totalPetals+' → 種 '+totalFlowers+' 朵！');
+}
+
+function stopAllPlanting() {
+  pikmins.forEach(function(p){
+    p.plantMode = false;
+    p._lastPlantX = null;
+    p._lastPlantY = null;
+    removeButtGlow(p);
+  });
+  if (globalPlantJob) {
+    document.getElementById('plantStatus').textContent = '✅ 種完！共 '+globalPlantJob.done+' 朵';
+    setTimeout(function(){ document.getElementById('plantStatus').textContent=''; }, 3000);
+  }
+  globalPlantJob = null;
+}
+
+function updatePlanting(p) {
+  if (!p.plantMode || !globalPlantJob) { p.plantMode=false; removeButtGlow(p); return; }
+  var W = window.innerWidth;
+  var job = globalPlantJob;
+
+  // 粉皮在空中飄，其他在地面走
+  if (p.type === 'winged') {
+    var flyY = 120 + Math.sin(tick*.015+p.flyPhase)*60;
+    p.y += (flyY - p.y) * 0.05;
+  } else {
+    p.y = window.innerHeight - GH - SZ;
+    p.vy = 0;
+  }
+
+  p.vx = p.plantDir * 1.4;
+  p.x += p.vx;
+
+  // 邊界反彈
+  if (p.x <= 0) { p.plantDir=1; p.x=0; }
+  if (p.x >= W-SZ) { p.plantDir=-1; p.x=W-SZ; }
+
+  p.el.style.left = p.x+'px';
+  p.el.style.top  = p.y+'px';
+  p.el.style.transform = p.plantDir<0?'scaleX(-1)':'scaleX(1)';
+  moveBub(p);
+
+  // 種花：每隔 spacing px 種一朵
+  var lx = p._lastPlantX, ly = p._lastPlantY;
+  var dist = (lx===null) ? 999 : Math.hypot(p.x-lx, p.y-ly);
+  if (dist >= job.spacing) {
+    p._lastPlantX = p.x;
+    p._lastPlantY = p.y;
+    if (job.done < job.totalFlowers) {
+      plantFlowerSVG(p.x+SZ/2, p.y+SZ-8, job.color, p.type==='winged');
+      job.done++;
+      document.getElementById('plantStatus').textContent =
+        '🌱 種花中 '+job.done+' / '+job.totalFlowers;
+      if (job.done >= job.totalFlowers) {
+        pikmins.forEach(function(q){ saySpeech(q,'happy'); });
+        stopAllPlanting();
+      }
+    }
+  }
+}
+
+function plantFlowerSVG(x, y, color, noStem) {
+  var size = 18 + Math.random()*12|0;
+  var el = document.createElement('div');
+  el.className = 'planted-flower';
+  var totalH = noStem ? size : (size + size*0.7);
+  el.style.left = (x - size/2) + 'px';
+  el.style.top  = (y - totalH) + 'px';
+  el.innerHTML = makeFlowerSVG(color, size, noStem);
+  document.body.appendChild(el);
+}
+
+// petalGrid rebuilt on panel open
+
+buildEssencePanel();
+buildPetalGrid();
+animate();
+
+setTimeout(function(){ spawn('red'); }, 400);
+setTimeout(function(){ spawn('winged'); }, 700);
+setTimeout(function(){ spawn('yellow'); }, 1000);
+</script>
+</body>
+</html>
